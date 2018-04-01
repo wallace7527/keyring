@@ -2,6 +2,7 @@ package info.wangl.keyring;
 
 import java.security.Key;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import android.content.ContentValues;
@@ -192,5 +193,16 @@ public class DBManager {
         c.close();
 
         return (count != 0);
+    }
+
+    public HashMap<Integer, Integer> countByCatalog() {
+
+        HashMap<Integer, Integer> cbc = new HashMap<Integer, Integer>();
+        Cursor c = db.rawQuery("SELECT catalog, COUNT(catalog) AS c FROM keyinfo GROUP BY catalog", null);
+        while (c.moveToNext()) {
+            cbc.put(c.getInt(0), c.getInt(1));
+        }
+
+        return cbc;
     }
 }

@@ -183,6 +183,7 @@ public class MainActivity extends AppCompatActivity
                         mgr.updateKeyInfo(keyInfo);
                         refreshListViewKeyInfoData(mListData);
                         mKeyInfoAdapter.notifyDataSetChanged();
+                        refreshMenu();
                     }
 
                     @NonNull
@@ -217,6 +218,7 @@ public class MainActivity extends AppCompatActivity
                     mgr.deleteKeyInfo(keyInfo);
                     refreshListViewKeyInfoData(mListData);
                     mKeyInfoAdapter.notifyDataSetChanged();
+                    refreshMenu();
                 }else if (which == 1) {
                     //修改
                     showKeyInfoDialog(id);
@@ -255,6 +257,7 @@ public class MainActivity extends AppCompatActivity
 
         navigationView.setNavigationItemSelectedListener(this);
 
+
         //listView
         ListView listViewKeyInfo = (ListView) findViewById(R.id.listKeyInfo);
         String[] strings = {"image", "title", "username", "password", "url"};//Map的key集合数组
@@ -272,6 +275,8 @@ public class MainActivity extends AppCompatActivity
                 return true;
             }
         });
+
+        setTitleCatalog(mCatalogId);
 
     }
 
@@ -301,12 +306,23 @@ public class MainActivity extends AppCompatActivity
         SubMenu menuCatalog = menu.addSubMenu("Catalog");
         SubMenu menuManager = menu.addSubMenu("Manager");
 
+
         mCatalogs = mgr.getAllCatalogs();
+
+        HashMap<Integer,Integer> countByCatalog = mgr.countByCatalog();
 
         int [] ic_menus = new int[]{R.drawable.ic_menu_camera, R.drawable.ic_menu_gallery, R.drawable.ic_menu_slideshow, R.drawable.ic_menu_manage, R.drawable.ic_menu_share, R.drawable.ic_menu_send};
 
         for( int i = 0; i < mCatalogs.size(); i++) {
-            menuCatalog.add(0,i,i,mCatalogs.get(i).name).setIcon(ic_menus[i%ic_menus.length]);//.setIcon(i%ic_menus.length);
+            KeyCatalog keyCatalog = mCatalogs.get(i);
+
+            int count = 0;
+            if (countByCatalog.containsKey(keyCatalog._id)) {
+                count = countByCatalog.get(keyCatalog._id);
+            }
+
+            String menuTitle = String.format("(%d) %s", count, keyCatalog.name);
+            menuCatalog.add(0,i,i,menuTitle).setIcon(ic_menus[i%ic_menus.length]);//.setIcon(i%ic_menus.length);
         }
 
         menuManager.add(0,R.id.add_catalog,1,"Add Catalog");
@@ -367,6 +383,7 @@ public class MainActivity extends AppCompatActivity
             mCatalogId = catalogId;
 
             if ( bChanged ) {
+                setTitleCatalog(catalogId);
                 refreshListViewKeyInfoData(mListData);
                 mKeyInfoAdapter.notifyDataSetChanged();
             }
@@ -388,5 +405,13 @@ public class MainActivity extends AppCompatActivity
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
+    }
+
+    private void setTitleCatalog(int catalogId) {
+        for( KeyCatalog catalog : mCatalogs){
+            if (catalog._id == catalogId) {
+                setTitle("Keyring - " + catalog.name );
+            }
+        }
     }
 }
