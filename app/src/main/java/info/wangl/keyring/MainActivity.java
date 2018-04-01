@@ -1,10 +1,26 @@
 package info.wangl.keyring;
 
+import android.Manifest;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.SubMenu;
 import android.view.View;
@@ -18,10 +34,14 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.Spinner;
+import android.widget.Toast;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,14 +50,114 @@ public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
     private static final Integer KEYINFO_NEW_ID = -1;
+    private static final int REQUEST_CAMERA = 1;
+    private static final int SELECT_ORIGINAL_PIC = 2;
     private DBManager mgr;
     private int mCatalogId = 0;
     private SimpleAdapter mKeyInfoAdapter;
     private ArrayList<HashMap<String, Object>> mListData;
     private List<KeyCatalog> mCatalogs;
-
+    private ImageView mImageView;
+    private boolean mDirtyImageView;
+    private File mFile;
     public interface OnConfirmListener { public void onConfirmClick(); }
 
+
+    /**
+     * 从相册选择原生的照片（不裁切）
+     */
+    private void selectFromGallery() {
+        // TODO Auto-generatedmethod stub
+        Intent intent=new Intent();
+        intent.setAction(Intent.ACTION_PICK);//Pick an item fromthe data
+        intent.setType("image/*");//从所有图片中进行选择
+        startActivityForResult(intent, SELECT_ORIGINAL_PIC);
+    }
+
+    /**
+     * 使用相机
+     */
+    private void useCamera() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        mFile = new File(Environment.getExternalStorageDirectory().getAbsolutePath()
+                + "/test/" + System.currentTimeMillis() + ".jpg");
+        mFile.getParentFile().mkdirs();
+
+        //改变Uri  com.xykj.customview.fileprovider注意和xml中的一致
+        Uri uri = FileProvider.getUriForFile(this, "com.xykj.customview.fileprovider", mFile);
+        //添加权限
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+        startActivityForResult(intent, REQUEST_CAMERA);
+    }
+
+    public void applyWritePermission() {
+
+        String[] permissions = {Manifest.permission.WRITE_EXTERNAL_STORAGE};
+
+        if (Build.VERSION.SDK_INT >= 23) {
+            int check = ContextCompat.checkSelfPermission(this, permissions[0]);
+            // 权限是否已经 授权 GRANTED---授权  DINIED---拒绝
+            if (check == PackageManager.PERMISSION_GRANTED) {
+                //调用相机
+                useCamera();
+            } else {
+                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+            }
+        } else {
+            useCamera();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            useCamera();
+        } else {
+            // 没有获取 到权限，从新请求，或者关闭app
+            Toast.makeText(this, "需要存储权限", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if ( resultCode != RESULT_OK ) return;
+
+        switch (requestCode) {
+            case SELECT_ORIGINAL_PIC:
+                if (resultCode==RESULT_OK) {//从相册选择照片不裁切
+                    try {
+                        Uri selectedImage = data.getData(); //获取系统返回的照片的Uri
+                        String[] filePathColumn = { MediaStore.Images.Media.DATA };
+                        Cursor cursor =getContentResolver().query(selectedImage,
+                                filePathColumn, null, null, null);//从系统表中查询指定Uri对应的照片
+                        cursor.moveToFirst();
+                        int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+                        String picturePath = cursor.getString(columnIndex);  //获取照片路径
+                        cursor.close();
+
+                        mImageView.setImageBitmap(BitmapFactory.decodeFile(picturePath));
+                        mDirtyImageView = true;
+                    } catch (Exception e) {
+                        // TODO Auto-generatedcatch block
+                        e.printStackTrace();
+                    }
+                }
+                break;
+            case REQUEST_CAMERA:
+                {
+                    Log.e("TAG", "---------" + FileProvider.getUriForFile(this, "com.xykj.customview.fileprovider", mFile));
+                    mImageView.setImageBitmap(BitmapFactory.decodeFile(mFile.getAbsolutePath()));
+                    mDirtyImageView = true;
+                }
+                break;
+        }
+    }
 
     private void showConfirmDialog(String title, String message, final OnConfirmListener onConfirmListener){
         final AlertDialog.Builder normalDialog =
@@ -178,7 +298,13 @@ public class MainActivity extends AppCompatActivity
                         keyInfo.password = getTextString(R.id.editPassword);
                         keyInfo.url = getTextString(R.id.editUrl);
                         keyInfo.notes = getTextString(R.id.editNotes);
-                        keyInfo.image = null;
+                        if ( mDirtyImageView ) {
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                            ((BitmapDrawable)mImageView.getDrawable()).getBitmap().compress(Bitmap.CompressFormat.PNG,100,baos);
+                            keyInfo.image = baos.toByteArray();
+                        }else {
+                            keyInfo.image = null;
+                        }
 
                         mgr.updateKeyInfo(keyInfo);
                         refreshListViewKeyInfoData(mListData);
@@ -192,6 +318,16 @@ public class MainActivity extends AppCompatActivity
                     }
                 });
 
+        mImageView = dialogView.findViewById(R.id.imageView);
+        mDirtyImageView = false;
+
+        mImageView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showImageMenu();
+            }
+        });
+
         //初始化数据
         if ( keyInfo != null ) {
             ((EditText) dialogView.findViewById(R.id.editTitle)).setText(keyInfo.title);
@@ -199,12 +335,37 @@ public class MainActivity extends AppCompatActivity
             ((EditText) dialogView.findViewById(R.id.editPassword)).setText(keyInfo.password);
             ((EditText) dialogView.findViewById(R.id.editUrl)).setText(keyInfo.url);
             ((EditText) dialogView.findViewById(R.id.editNotes)).setText(keyInfo.notes);
+            if ( keyInfo.image != null && keyInfo.image.length > 0 ) {
+                mImageView.setImageBitmap(BitmapFactory.decodeByteArray(keyInfo.image, 0, keyInfo.image.length));
+            }
         }
+
         keyInfoDialog.show();
     }
 
-    private void showEditDeleteDialog(final int id) {
-        final String[] items = { "删除","修改" };
+
+    private void showImageMenu() {
+        final String[] items = { "拍照","从相册选择" };
+        AlertDialog.Builder listDialog =
+                new AlertDialog.Builder(MainActivity.this);
+        //istDialog.setTitle("我是一个列表Dialog");
+        listDialog.setItems(items, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (which == 0) {
+                    //拍照
+                    applyWritePermission();
+                }else if (which == 1) {
+                    //从相册选择
+                    selectFromGallery();
+                }
+            }
+        });
+        listDialog.show();
+    }
+
+    private void showKeyInfoMenuDialog(final int id) {
+        final String[] items = { "删除","修改","复制账号","复制密码","复制URL" };
         AlertDialog.Builder listDialog =
                 new AlertDialog.Builder(MainActivity.this);
         //istDialog.setTitle("我是一个列表Dialog");
@@ -222,11 +383,31 @@ public class MainActivity extends AppCompatActivity
                 }else if (which == 1) {
                     //修改
                     showKeyInfoDialog(id);
+                }else if ( which == 2) {
+                    //复制账号
+                    KeyInfo keyInfo = mgr.getKeyInfoById(id);
+                    copyString(keyInfo.username);
+                }else if ( which == 3) {
+                    KeyInfo keyInfo = mgr.getKeyInfoById(id);
+                    //复制密码
+                    copyString(keyInfo.password);
+                } else if (which == 4) {
+                    //复制URL
+                    KeyInfo keyInfo = mgr.getKeyInfoById(id);
+                    copyString(keyInfo.url);
                 }
 
             }
         });
         listDialog.show();
+    }
+
+    private void copyString(String txt) {
+        ClipboardManager cmb = (ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+        ClipData mClipData = ClipData.newPlainText("Label", txt.trim());
+        cmb.setPrimaryClip(mClipData);
+        Toast.makeText(getApplicationContext(), "数据复制到剪贴板",
+                Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -271,7 +452,7 @@ public class MainActivity extends AppCompatActivity
         listViewKeyInfo.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                showEditDeleteDialog((int)mListData.get(position).get("id"));
+                showKeyInfoMenuDialog((int)mListData.get(position).get("id"));
                 return true;
             }
         });

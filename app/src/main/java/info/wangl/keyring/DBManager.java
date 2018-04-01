@@ -179,6 +179,10 @@ public class DBManager {
         cv.put("url", keyInfo.url);
         cv.put("notes", keyInfo.notes);
         cv.put( "catalog", keyInfo.catalog);
+        if ( keyInfo.image != null ) {
+            cv.put( "image", keyInfo.image);
+        }
+
         String[] args = {String.valueOf(keyInfo._id)};
         db.update("keyinfo", cv, "_id=?",args );
     }
