@@ -34,6 +34,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
@@ -328,6 +329,13 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        ImageButton imageButton = dialogView.findViewById(R.id.imageButton);
+        imageButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ((EditText) dialogView.findViewById(R.id.editPassword)).setText(mgr.genPassword());
+            }
+        });
         //初始化数据
         if ( keyInfo != null ) {
             ((EditText) dialogView.findViewById(R.id.editTitle)).setText(keyInfo.title);
@@ -542,6 +550,10 @@ public class MainActivity extends AppCompatActivity
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            Intent intent = new Intent();
+            intent.setClass(MainActivity.this, SettingsActivity.class);
+            startActivity(intent);
+
             return true;
         }
 

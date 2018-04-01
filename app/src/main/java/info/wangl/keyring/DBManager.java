@@ -4,22 +4,35 @@ import java.security.Key;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 
-public class DBManager {
+
+public class DBManager implements OnSharedPreferenceChangeListener {
+    private static final String ENCRYPT_KEY = "Wang Lei" ;
     private DBHelper helper;
     private SQLiteDatabase db;
+    private Integer mPasswordLength;
+    private Integer mPasswordLevel;
 
     public DBManager(Context context) {
         helper = new DBHelper(context);
         //因为getWritableDatabase内部调用了mContext.openOrCreateDatabase(mName, 0, mFactory);
         //所以要确保context已初始化,我们可以把实例化DBManager的步骤放在Activity的onCreate里
         db = helper.getWritableDatabase();
+
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(context);
+        mPasswordLength = Integer.valueOf(sharedPref.getString("password_length", "12"));
+        mPasswordLevel = Integer.valueOf(sharedPref.getString("password_strength", "3"));
+        sharedPref.registerOnSharedPreferenceChangeListener(this);
     }
 
     /**
@@ -208,5 +221,25 @@ public class DBManager {
         }
 
         return cbc;
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+
+        if (key.equals("password_length")) {
+            mPasswordLength = Integer.valueOf(sharedPreferences.getString("password_length", "12"));
+        }else if (key.equals("password_strength")) {
+            mPasswordLength = Integer.valueOf(sharedPreferences.getString("password_strength", "3"));
+        }
+    }
+
+    public String genPassword() {
+        Password password = new Password(mPasswordLevel, mPasswordLength);
+        try {
+            return password.getRandomPassword();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }
