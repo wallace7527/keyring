@@ -51,7 +51,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
 
     public void addKeyInfo(KeyInfo keyinfo) {
         //new String[]{String.valueOf(keyinfo.catalog), keyinfo.title, keyinfo.username, keyinfo.password, keyinfo.url, keyinfo.notes}
-        db.execSQL("INSERT INTO keyinfo VALUES(null, ?, ?, ?, ?, ?, ?, ?)", new Object[]{keyinfo.catalog, keyinfo.title, keyinfo.username, keyinfo.password, keyinfo.url, keyinfo.notes, keyinfo.image});
+        db.execSQL("INSERT INTO keyinfo VALUES(null, ?, ?, ?, ?, ?, ?, ?, null)", new Object[]{keyinfo.catalog, keyinfo.title, keyinfo.username, keyinfo.password, keyinfo.url, keyinfo.notes, keyinfo.image});
     }
 
 
@@ -81,7 +81,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
      * @return List<KeyInfo>
      */
     public List<KeyInfo> getAllKeyInfos() {
-        Cursor c = db.rawQuery("SELECT * FROM keyinfo where and ifnull(remove,0) <> 1", null);
+        Cursor c = db.rawQuery("SELECT * FROM keyinfo where ifnull(remove,0) <> 1", null);
 
         return getKeyInfos(c);
     }
@@ -256,7 +256,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
 
     public List<KeyInfo> searchData(String newText) {
         String kw = "%"+newText+"%";
-        Cursor c = db.rawQuery("SELECT * FROM keyinfo where and ifnull(remove,0) <> 1 and (title like ? or username like ? or url like ? or notes like ?)", new String[]{kw,kw,kw,kw});
+        Cursor c = db.rawQuery("SELECT * FROM keyinfo where ifnull(remove,0) <> 1 and (title like ? or username like ? or url like ? or notes like ?)", new String[]{kw,kw,kw,kw});
         return getKeyInfos(c);
     }
 
@@ -269,5 +269,11 @@ public class DBManager implements OnSharedPreferenceChangeListener {
         }
         c.close();
         return count;
+    }
+
+    public List<KeyInfo> getRecycleBin() {
+        Cursor c = db.rawQuery("SELECT * FROM keyinfo where remove = 1", null);
+
+        return getKeyInfos(c);
     }
 }

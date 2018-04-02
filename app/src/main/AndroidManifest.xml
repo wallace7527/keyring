@@ -34,7 +34,16 @@
 
         <activity
             android:name=".SettingsActivity"
-            android:label="@string/title_activity_settings"></activity>
+            android:parentActivityName=".MainActivity"
+            android:label="@string/title_activity_settings" />
+
+        <activity
+            android:name=".RecyclebinActivity"
+            android:parentActivityName=".MainActivity"
+            android:label="@string/title_recycle_bin" />
+
+
+
     </application>
 
 </manifest>

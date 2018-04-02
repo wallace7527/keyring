@@ -640,7 +640,10 @@ public class MainActivity extends AppCompatActivity
         } else if ( id == R.id.add_catalog) {
             showKeyCatalogDialog();
         } else if (id == R.id.nav_recycle_bin) {
+            Intent intent = new Intent();
+            intent.setClass(this, RecyclebinActivity.class);
 
+            startActivity(intent);
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
