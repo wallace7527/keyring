@@ -1,6 +1,7 @@
 package info.wangl.keyring;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.DialogInterface;
@@ -20,6 +21,7 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
+import android.support.v7.widget.SearchView.OnQueryTextListener;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.SubMenu;
@@ -37,6 +39,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ListView;
+import android.support.v7.widget.SearchView;
 import android.widget.SimpleAdapter;
 import android.widget.Spinner;
 import android.widget.Toast;
@@ -48,7 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener {
+        implements NavigationView.OnNavigationItemSelectedListener, OnQueryTextListener, SearchView.OnCloseListener {
 
     private static final Integer KEYINFO_NEW_ID = -1;
     private static final int REQUEST_CAMERA = 1;
@@ -56,11 +59,54 @@ public class MainActivity extends AppCompatActivity
     private DBManager mgr;
     private int mCatalogId = 0;
     private SimpleAdapter mKeyInfoAdapter;
-    private ArrayList<HashMap<String, Object>> mListData;
+    private ArrayList<HashMap<String, Object>> mListData = new ArrayList<HashMap<String, Object>>();
     private List<KeyCatalog> mCatalogs;
     private ImageView mImageView;
     private boolean mDirtyImageView;
     private File mFile;
+    private SearchView mSearchView;
+    private String mKeywords;
+
+    @Override
+    public boolean onQueryTextSubmit(String query) {
+        mKeywords = query;
+
+        refreshListViewKeyInfoData(true);
+//        Toast.makeText(this,query, Toast.LENGTH_SHORT).show();
+        return true;
+    }
+
+    private void refreshKeyInfos(List<KeyInfo> keyInfos, boolean bNotify) {
+        mListData.clear();
+        HashMap<String, Object> map = null;
+        for (KeyInfo keyInfo:keyInfos) {
+            map = new HashMap<String, Object>();
+            map.put("id", keyInfo._id);
+            map.put("title", keyInfo.title);
+            map.put("username", keyInfo.username);
+            map.put("password", keyInfo.password);
+            map.put("url", keyInfo.url);
+            map.put("image", R.drawable.ic_menu_slideshow);
+            mListData.add(map);
+        }
+
+        if ( bNotify ) {
+            mKeyInfoAdapter.notifyDataSetChanged();
+        }
+    }
+
+    @Override
+    public boolean onQueryTextChange(String newText) {
+        return false;
+    }
+
+    @Override
+    public boolean onClose() {
+        mKeywords = "";
+        refreshListViewKeyInfoData(true);
+        return false;
+    }
+
     public interface OnConfirmListener { public void onConfirmClick(); }
 
 
@@ -308,8 +354,7 @@ public class MainActivity extends AppCompatActivity
                         }
 
                         mgr.updateKeyInfo(keyInfo);
-                        refreshListViewKeyInfoData(mListData);
-                        mKeyInfoAdapter.notifyDataSetChanged();
+                        refreshListViewKeyInfoData(true);
                         refreshMenu();
                     }
 
@@ -385,8 +430,7 @@ public class MainActivity extends AppCompatActivity
                     KeyInfo keyInfo = new KeyInfo();
                     keyInfo._id = id;
                     mgr.deleteKeyInfo(keyInfo);
-                    refreshListViewKeyInfoData(mListData);
-                    mKeyInfoAdapter.notifyDataSetChanged();
+                    refreshListViewKeyInfoData(true);
                     refreshMenu();
                 }else if (which == 1) {
                     //修改
@@ -451,8 +495,8 @@ public class MainActivity extends AppCompatActivity
         ListView listViewKeyInfo = (ListView) findViewById(R.id.listKeyInfo);
         String[] strings = {"image", "title", "username", "password", "url"};//Map的key集合数组
         int[] ids = {R.id.img, R.id.title, R.id.username, R.id.password, R.id.url};//对应布局文件的id
-        mListData = new ArrayList<HashMap<String, Object>>();
-        refreshListViewKeyInfoData(mListData);
+
+        refreshListViewKeyInfoData(false);
         mKeyInfoAdapter = new SimpleAdapter(this,
                 mListData, R.layout.keyinfo_list_item7, strings, ids);
         listViewKeyInfo.setAdapter(mKeyInfoAdapter);//绑定适配器
@@ -469,22 +513,14 @@ public class MainActivity extends AppCompatActivity
 
     }
 
-    private void refreshListViewKeyInfoData(ArrayList<HashMap<String, Object>> list) {
-
-        list.clear();
-        HashMap<String, Object> map = null;
-        List<KeyInfo> keyInfos = mgr.getKeyInfosByCatalog(mCatalogId);
-        for (KeyInfo keyInfo:keyInfos) {
-            map = new HashMap<String, Object>();
-            map.put("id", keyInfo._id);
-            map.put("title", keyInfo.title);
-            map.put("username", keyInfo.username);
-            map.put("password", keyInfo.password);
-            map.put("url", keyInfo.url);
-            map.put("image", R.drawable.ic_menu_slideshow);
-            list.add(map);
+    private void refreshListViewKeyInfoData(boolean bNotify) {
+        List<KeyInfo> keyInfos;
+        if (mKeywords == null || mKeywords.isEmpty()) {
+            keyInfos = mgr.getKeyInfosByCatalog(mCatalogId);
+        } else {
+            keyInfos = mgr.searchData(mKeywords);
         }
-
+        refreshKeyInfos(keyInfos,bNotify);
     }
 
     private void refreshMenu() {
@@ -511,11 +547,15 @@ public class MainActivity extends AppCompatActivity
             }
 
             String menuTitle = String.format("(%d) %s", count, keyCatalog.name);
-            menuCatalog.add(0,i,i,menuTitle).setIcon(ic_menus[i%ic_menus.length]);//.setIcon(i%ic_menus.length);
+            menuCatalog.add(0,i,i,menuTitle).setIcon(ic_menus[i%ic_menus.length]);
         }
 
         menuManager.add(0,R.id.add_catalog,1,"Add Catalog");
         menuManager.add(0,R.id.del_catalog,2,"Delete Catalog");
+        menuManager.add(1,R.id.nav_recycle_bin,3,
+                "Recycle bin ("+String.valueOf(mgr.getCountOfRecycleBin())+")")
+                .setIcon(android.R.drawable.ic_menu_delete);
+
     }
 
     @Override
@@ -534,10 +574,17 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    @SuppressLint("RestrictedApi")
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
+        mSearchView = (SearchView) menu.findItem(R.id.menu_search).getActionView();
+        mSearchView.setOnQueryTextListener(this);
+        mSearchView.setOnCloseListener(this);
+        mSearchView.setQueryHint(this.getString(R.string.menu_search));
+//        mSearchAutoComplete = (SearchAutoComplete)mSearchView.findViewById(R.id.search_src_text);
+//        mSearchAutoComplete.setThreshold(1);
         return true;
     }
 
@@ -577,8 +624,7 @@ public class MainActivity extends AppCompatActivity
 
             if ( bChanged ) {
                 setTitleCatalog(catalogId);
-                refreshListViewKeyInfoData(mListData);
-                mKeyInfoAdapter.notifyDataSetChanged();
+                refreshListViewKeyInfoData(true);
             }
 
         } else if (id == R.id.nav_camera) {
@@ -593,6 +639,8 @@ public class MainActivity extends AppCompatActivity
             showDeleteKeyCatalogDialog();
         } else if ( id == R.id.add_catalog) {
             showKeyCatalogDialog();
+        } else if (id == R.id.nav_recycle_bin) {
+
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);

@@ -1,10 +1,8 @@
 package info.wangl.keyring;
 
-import java.security.Key;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Random;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -62,7 +60,20 @@ public class DBManager implements OnSharedPreferenceChangeListener {
      * @param keyinfo
      */
     public void deleteKeyInfo(KeyInfo keyinfo) {
-        db.delete("keyinfo", "_id = ?", new String[]{String.valueOf(keyinfo._id)});
+        ContentValues cv = new ContentValues();
+        cv.put("remove", 1);
+        db.update("keyinfo", cv, "_id = ?", new String[]{String.valueOf(keyinfo._id)});
+        //db.delete("keyinfo", "_id = ?", new String[]{String.valueOf(keyinfo._id)});
+    }
+
+    public void cleanRecycleBin() {
+        db.delete("keyinfo", "remove = 1", null);
+    }
+
+    public void restoreRecycleBin() {
+        ContentValues cv = new ContentValues();
+        cv.put("remove", 0);
+        db.update("keyinfo", cv, "remove = 1", null);
     }
 
     /**
@@ -70,7 +81,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
      * @return List<KeyInfo>
      */
     public List<KeyInfo> getAllKeyInfos() {
-        Cursor c = db.rawQuery("SELECT * FROM keyinfo", null);
+        Cursor c = db.rawQuery("SELECT * FROM keyinfo where and ifnull(remove,0) <> 1", null);
 
         return getKeyInfos(c);
     }
@@ -96,7 +107,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
     }
 
     public List<KeyInfo> getKeyInfosByCatalog(int catalog) {
-        Cursor c = db.rawQuery("SELECT * FROM keyinfo where catalog = ?", new String[]{String.valueOf(catalog)});
+        Cursor c = db.rawQuery("SELECT * FROM keyinfo where catalog = ? and ifnull(remove,0) <> 1 ", new String[]{String.valueOf(catalog)});
 
         return getKeyInfos(c);
     }
@@ -165,7 +176,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
 
 
     public KeyInfo getKeyInfoById(int id) {
-        Cursor c = db.rawQuery("SELECT * FROM keyinfo where _id = ?", new String[]{String.valueOf(id)});
+        Cursor c = db.rawQuery("SELECT * FROM keyinfo where _id = ? and ifnull(remove,0) <> 1", new String[]{String.valueOf(id)});
         List<KeyInfo> list = getKeyInfos(c);
         if ( list.size() ==  1 ) {
             return list.get(0);
@@ -202,7 +213,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
 
     private boolean existsKeyInfo(KeyInfo keyInfo) {
         int count = 0;
-        Cursor c = db.rawQuery("SELECT COUNT(*) FROM keyinfo where _id=?", new String[]{String.valueOf(keyInfo._id)});
+        Cursor c = db.rawQuery("SELECT COUNT(*) FROM keyinfo where _id=? and ifnull(remove,0) <> 1", new String[]{String.valueOf(keyInfo._id)});
 
         if (c.moveToNext()) {
             count = c.getInt(0);
@@ -215,7 +226,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
     public HashMap<Integer, Integer> countByCatalog() {
 
         HashMap<Integer, Integer> cbc = new HashMap<Integer, Integer>();
-        Cursor c = db.rawQuery("SELECT catalog, COUNT(catalog) AS c FROM keyinfo GROUP BY catalog", null);
+        Cursor c = db.rawQuery("SELECT catalog, COUNT(catalog) AS c FROM keyinfo WHERE ifnull(remove,0) <> 1  GROUP BY catalog", null);
         while (c.moveToNext()) {
             cbc.put(c.getInt(0), c.getInt(1));
         }
@@ -229,7 +240,7 @@ public class DBManager implements OnSharedPreferenceChangeListener {
         if (key.equals("password_length")) {
             mPasswordLength = Integer.valueOf(sharedPreferences.getString("password_length", "12"));
         }else if (key.equals("password_strength")) {
-            mPasswordLength = Integer.valueOf(sharedPreferences.getString("password_strength", "3"));
+            mPasswordLevel = Integer.valueOf(sharedPreferences.getString("password_strength", "3"));
         }
     }
 
@@ -241,5 +252,22 @@ public class DBManager implements OnSharedPreferenceChangeListener {
             e.printStackTrace();
         }
         return null;
+    }
+
+    public List<KeyInfo> searchData(String newText) {
+        String kw = "%"+newText+"%";
+        Cursor c = db.rawQuery("SELECT * FROM keyinfo where and ifnull(remove,0) <> 1 and (title like ? or username like ? or url like ? or notes like ?)", new String[]{kw,kw,kw,kw});
+        return getKeyInfos(c);
+    }
+
+    public int getCountOfRecycleBin() {
+        int count = 0;
+        Cursor c = db.rawQuery("SELECT COUNT(*) FROM keyinfo where remove=1", null);
+
+        if (c.moveToNext()) {
+            count = c.getInt(0);
+        }
+        c.close();
+        return count;
     }
 }

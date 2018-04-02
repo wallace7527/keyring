@@ -21,6 +21,11 @@
             android:id="@+id/nav_manage"
             android:icon="@drawable/ic_menu_manage"
             android:title="Tools" />
+
+        <item
+            android:id="@+id/nav_recycle_bin"
+            android:icon="@android:drawable/ic_menu_delete"
+            android:title="Recycle bin" />
     </group>
 
     <item android:title="Catalog Manager">
