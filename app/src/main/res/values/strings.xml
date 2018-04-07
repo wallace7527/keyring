@@ -27,6 +27,7 @@
     <string name="pref_title_strength">Strength</string>
     <string name="menu_search">Search keywords</string>
     <string name="title_recycle_bin">Recycle bin</string>
+    <string name="title_detail">Detail</string>
     <string-array name="pref_password_strength_titles">
         <item>Only number</item>
         <item>Number and lowercase letters</item>

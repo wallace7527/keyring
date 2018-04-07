@@ -38,14 +38,16 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Clear" />
+                android:text="Clear"
+                tools:textAllCaps="false" />
 
             <Button
                 android:id="@+id/recycle_restore"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Restore" />
+                android:text="Restore"
+                tools:textAllCaps="false" />
 
         </LinearLayout>
 

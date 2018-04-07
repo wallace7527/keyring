@@ -183,10 +183,16 @@ public class MainActivity extends AppCompatActivity
                         String[] filePathColumn = { MediaStore.Images.Media.DATA };
                         Cursor cursor =getContentResolver().query(selectedImage,
                                 filePathColumn, null, null, null);//从系统表中查询指定Uri对应的照片
-                        cursor.moveToFirst();
-                        int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-                        String picturePath = cursor.getString(columnIndex);  //获取照片路径
-                        cursor.close();
+                        String picturePath;
+                        if (cursor != null) {
+                            cursor.moveToFirst();
+                            int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+                            picturePath = cursor.getString(columnIndex);  //获取照片路径
+                            cursor.close();
+
+                        } else {
+                            picturePath = selectedImage.getPath();
+                        }
 
                         mImageView.setImageBitmap(BitmapFactory.decodeFile(picturePath));
                         mDirtyImageView = true;
@@ -506,6 +512,16 @@ public class MainActivity extends AppCompatActivity
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
                 showKeyInfoMenuDialog((int)mListData.get(position).get("id"));
                 return true;
+            }
+        });
+
+        listViewKeyInfo.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent intent = new Intent();
+                intent.setClass(MainActivity.this, DetailActivity.class);
+                intent.putExtra("keyinfo_id", (int)mListData.get(position).get("id"));
+                startActivity(intent);
             }
         });
 
